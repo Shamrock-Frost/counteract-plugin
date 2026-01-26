@@ -28,7 +28,7 @@ A Foundry VTT module for Pathfinder 2nd Edition that automates counteract checks
 
 ### Manifest URL
 ```
-https://github.com/YOUR_USERNAME/counteract-plugin/releases/latest/download/module.json
+https://github.com/Shamrock-Frost/counteract-plugin/releases/latest/download/module.json
 ```
 
 ## Usage
