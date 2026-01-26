@@ -1,0 +1,222 @@
+/* Counteract Plugin Styles */
+
+/* Dialog Styling */
+.counteract-dialog {
+  background: var(--color-bg, #1c1c1c);
+}
+
+.counteract-dialog .window-content {
+  padding: 10px;
+}
+
+.counteract-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.counteract-dialog .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.counteract-dialog .form-group label {
+  font-weight: bold;
+  font-size: 0.9em;
+  color: var(--color-text-dark-primary, #ccc);
+}
+
+.counteract-dialog .form-group input,
+.counteract-dialog .form-group select {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-light, #444);
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: #eeeeee;
+  color-scheme: dark;
+}
+
+.counteract-dialog .form-group input::placeholder {
+  color: #888;
+}
+
+.counteract-dialog .form-group select option {
+  background: #2a2a2a;
+  color: #eeeeee;
+}
+
+.counteract-dialog .form-group-inline {
+  display: flex;
+  gap: 10px;
+}
+
+.counteract-dialog .form-group-inline .form-group {
+  flex: 1;
+}
+
+.counteract-dialog .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1em;
+  font-weight: bold;
+  color: var(--color-text-hyperlink, #6ba5ff);
+  border-bottom: 1px solid var(--color-border-light, #444);
+  padding-bottom: 4px;
+  margin-top: 10px;
+}
+
+.counteract-dialog button[name="rollCounteract"] {
+  margin-top: 15px;
+  padding: 10px;
+  font-size: 1.1em;
+  font-weight: bold;
+  background: var(--color-primary, #5e2d91);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.counteract-dialog button[name="rollCounteract"]:hover {
+  background: var(--color-primary-dark, #4a2373);
+}
+
+.counteract-dialog button[name="refreshTarget"] {
+  padding: 4px 8px;
+  font-size: 0.85em;
+  background: var(--color-bg-option, #333);
+  border: 1px solid var(--color-border-light, #444);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Chat Card Styling */
+.counteract-chat-card {
+  background: var(--color-bg, #1c1c1c);
+  border-radius: 6px;
+  padding: 10px;
+  border: 1px solid var(--color-border-light, #444);
+}
+
+.counteract-chat-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: var(--color-text-hyperlink, #6ba5ff);
+}
+
+.counteract-chat-card .card-header i {
+  font-size: 1.2em;
+}
+
+.counteract-chat-card .roll-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.9em;
+}
+
+.counteract-chat-card .roll-details .detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.counteract-chat-card .roll-details .detail-label {
+  font-size: 0.8em;
+  color: var(--color-text-dark-secondary, #888);
+  text-transform: uppercase;
+}
+
+.counteract-chat-card .roll-details .detail-value {
+  font-weight: bold;
+}
+
+.counteract-chat-card .roll-display {
+  background: var(--color-bg-option, #2a2a2a);
+  border-radius: 4px;
+  padding: 8px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.counteract-chat-card .roll-formula {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.counteract-chat-card .roll-vs {
+  font-size: 0.85em;
+  color: var(--color-text-dark-secondary, #888);
+  margin-top: 4px;
+}
+
+.counteract-chat-card .degree-of-success {
+  text-align: center;
+  font-size: 0.9em;
+  margin-bottom: 10px;
+  padding: 4px;
+  border-radius: 4px;
+  background: var(--color-bg-option, #333);
+}
+
+.counteract-chat-card .degree-of-success.criticalSuccess {
+  color: #00ff00;
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.counteract-chat-card .degree-of-success.success {
+  color: #7fff00;
+  background: rgba(127, 255, 0, 0.1);
+}
+
+.counteract-chat-card .degree-of-success.failure {
+  color: #ff7700;
+  background: rgba(255, 119, 0, 0.1);
+}
+
+.counteract-chat-card .degree-of-success.criticalFailure {
+  color: #ff0000;
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.counteract-chat-card .result-banner {
+  text-align: center;
+  font-size: 1.3em;
+  font-weight: bold;
+  padding: 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.counteract-chat-card .result-banner.success {
+  background: linear-gradient(135deg, #1a4d1a 0%, #2d7a2d 100%);
+  color: #00ff00;
+  border: 2px solid #00aa00;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.counteract-chat-card .result-banner.failure {
+  background: linear-gradient(135deg, #4d1a1a 0%, #7a2d2d 100%);
+  color: #ff4444;
+  border: 2px solid #aa0000;
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+.counteract-chat-card .rank-comparison {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85em;
+  margin-top: 8px;
+  color: var(--color-text-dark-secondary, #888);
+}
+

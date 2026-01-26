@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Test files
+tests/
+playwright.config.js
+package.json
+package-lock.json
+
+# Claude Code internal docs
+CLAUDE.md
+
+# OS files
+.DS_Store
+Thumbs.db

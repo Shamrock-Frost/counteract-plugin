@@ -1,0 +1,86 @@
+{
+  "COUNTERACT": {
+    "ModuleReady": "Counteract Automation ready. Use game.counteract.open() or the token controls button.",
+    "DialogTitle": "Counteract Check",
+    "DialogTitleCounterspell": "Counterspell",
+    "SceneControl": {
+      "Title": "Open Counteract Dialog"
+    },
+    "ModeSelect": {
+      "Title": "Counteract Type",
+      "Prompt": "What type of counteract check are you making?",
+      "DispelEffect": "Dispel Effect",
+      "Counterspell": "Counterspell"
+    },
+    "Settings": {
+      "ShowSceneButton": {
+        "Name": "Show Scene Control Button",
+        "Hint": "Add a counteract button to the token controls in the scene toolbar."
+      },
+      "ShowReadyNotification": {
+        "Name": "Show Ready Notification",
+        "Hint": "Display a notification when the module is ready with instructions for opening the dialog."
+      }
+    },
+    "Warnings": {
+      "NoActor": "Please select an actor to perform the counteract check.",
+      "NotReady": "Counteract module not fully loaded yet."
+    },
+    "Errors": {
+      "RollFailed": "Failed to evaluate the counteract roll. Please try again."
+    },
+    "Dialog": {
+      "SourceSection": "Source (Counteracting)",
+      "TargetSection": "Target (Being Counteracted)",
+      "CasterSection": "Enemy Caster",
+      "Actor": "Actor",
+      "SelectActor": "Select Actor",
+      "Spell": "Spell/Ability",
+      "SelectSpell": "Select Spell",
+      "SourceRank": "Source Rank",
+      "Modifier": "Counteract Modifier",
+      "TargetToken": "Target",
+      "TargetCaster": "Caster",
+      "TargetEffect": "Target Effect",
+      "SpellBeingCast": "Spell Being Cast",
+      "SelectEffect": "Select Effect",
+      "ManualInput": "Manual Input",
+      "NoTarget": "No token targeted. Target a token or enter values manually.",
+      "NoTargetCaster": "No caster targeted. Target the enemy caster or enter values manually.",
+      "TargetName": "Effect Name",
+      "TargetNamePlaceholder": "Name of effect being counteracted",
+      "SpellName": "Spell Name",
+      "SpellNamePlaceholder": "Name of spell being countered",
+      "TargetRank": "Target Rank",
+      "SpellRank": "Spell Rank",
+      "TargetDC": "Counteract DC",
+      "CasterDC": "Caster's Spell DC",
+      "RefreshTarget": "Refresh Target",
+      "RollCounteract": "Roll Counteract Check",
+      "RecentlyCast": "Recently cast"
+    },
+    "ChatCard": {
+      "Title": "Counteract Check",
+      "Caster": "Caster",
+      "Spell": "Using",
+      "SourceRank": "Source Rank",
+      "Target": "Target",
+      "TargetRank": "Target Rank",
+      "Threshold": "Max Rank",
+      "DieResult": "Die Result",
+      "Modifier": "Modifier",
+      "Total": "Total",
+      "Versus": "vs"
+    },
+    "Degree": {
+      "criticalSuccess": "Critical Success",
+      "success": "Success",
+      "failure": "Failure",
+      "criticalFailure": "Critical Failure"
+    },
+    "Result": {
+      "Counteracted": "Counteracted!",
+      "Failed": "Failed"
+    }
+  }
+}
