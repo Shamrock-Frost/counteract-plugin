@@ -25,14 +25,6 @@
     <span class="degree {{degreeOfSuccess}}">{{degreeLabel}}</span>
   </div>
 
-  <div class="result {{#if success}}success{{else}}failure{{/if}}">
-    <strong>
-      <i class="fa-solid {{#if success}}fa-circle-check{{else}}fa-circle-xmark{{/if}}" inert></i>
-      {{resultLabel}}
-    </strong>
-    <span class="explanation">{{explanation}}</span>
-  </div>
-
   {{#if canRemove}}
     <button type="button" data-counteract-remove>
       <i class="fa-solid fa-eraser" inert></i> {{localize "COUNTERACT.ChatCard.RemoveEffect" name=targetName}}

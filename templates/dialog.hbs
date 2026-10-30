@@ -98,15 +98,7 @@
             {{/each}}
           {{#if isCounterspell}}</optgroup>{{/if}}
         </select>
-        {{#unless isCounterspell}}{{#unless targetOptions.length}}
-          <p class="hint">{{localize "COUNTERACT.Dialog.NoEffects"}}</p>
-        {{/unless}}{{/unless}}
       </div>
-    {{else}}
-      <p class="hint no-target">
-        <i class="fa-solid fa-circle-info" inert></i>
-        {{#if isCounterspell}}{{localize "COUNTERACT.Dialog.NoTargetCaster"}}{{else}}{{localize "COUNTERACT.Dialog.NoTarget"}}{{/if}}
-      </p>
     {{/if}}
 
     <div class="form-group">
@@ -129,15 +121,4 @@
       </div>
     </div>
   </section>
-
-  {{!-- What the roll needs --}}
-  <div class="preview {{preview.tone}}">
-    {{#if preview.possible}}
-      <span class="chance">{{preview.chance}}%</span>
-      <span class="needs">{{{localize "COUNTERACT.Preview.Needs" degree=preview.degreeLabel total=preview.total modifier=modifierLabel}}}</span>
-    {{else}}
-      <i class="fa-solid fa-ban" inert></i>
-      <span class="needs">{{localize "COUNTERACT.Preview.Impossible" rank=targetRank}}</span>
-    {{/if}}
-  </div>
 </div>

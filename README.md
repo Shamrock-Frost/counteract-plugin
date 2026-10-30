@@ -14,9 +14,7 @@ A Foundry VTT module for Pathfinder 2nd Edition that automates counteract checks
   - Shows the enemy caster's recently cast spells first (from chat history)
   - Uses the original caster's spell DC or the affliction's DC when PF2e recorded it, otherwise the DC for the rank
 
-- **Know your odds before rolling:** the window shows the degree of success you need, the total that gets it, and your chance
-
-- **Readable results:** the chat card says whether it counteracted and why, and a successful dispel has a button to remove the effect
+- **Remove on success:** a successful dispel's chat card has a button to remove the effect
 
 - **Full Remaster Rules Support:**
   - Correct DC calculation (caster's spell DC or fallback table)
@@ -62,7 +60,7 @@ Use this when casting Dispel Magic or similar spells on an ongoing effect:
 2. Open the counteract window and choose **Dispel Effect**
 3. Choose your caster and counteracting spell
 4. Pick the effect from the dropdown; its rank and DC fill in
-5. Check the odds, then click **Roll Counteract Check**
+5. Click **Roll Counteract Check**
 6. On a success, the GM can click **Remove** on the chat card to end the effect
 
 ### Counterspell Mode

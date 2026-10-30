@@ -47,9 +47,6 @@
       "TargetEffect": "Effect",
       "SpellBeingCast": "Spell",
       "SelectEffect": "Choose an effect",
-      "NoEffects": "No effects or afflictions on this token. Enter one below.",
-      "NoTarget": "Target a token to pick from its effects, or enter the effect below.",
-      "NoTargetCaster": "Target the enemy caster to pick from their spells, or enter the spell below.",
       "TargetName": "Effect name",
       "TargetNamePlaceholder": "e.g. Spell Effect: Heroism",
       "SpellName": "Spell name",
@@ -79,16 +76,6 @@
       "success": "Success",
       "failure": "Failure",
       "criticalFailure": "Critical Failure"
-    },
-    "Result": {
-      "Counteracted": "Counteracted",
-      "Failed": "Not counteracted",
-      "Explain": "A {degree} counteracts rank {threshold} or lower; the target is rank {rank}.",
-      "ExplainCritFail": "A critical failure counteracts nothing."
-    },
-    "Preview": {
-      "Needs": "needs a <strong>{degree}</strong>: a total of <strong>{total}+</strong> with {modifier}",
-      "Impossible": "Rank {rank} is too high: even a critical success can't counteract it."
     }
   }
 }

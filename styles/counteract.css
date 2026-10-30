@@ -6,9 +6,6 @@
 
 .counteract-dialog {
   --ca-gap: 0.5rem;
-  --ca-good: var(--color-level-success, #2e7d32);
-  --ca-fair: var(--color-level-warning, #b8860b);
-  --ca-poor: var(--color-level-error, #b3261e);
 }
 
 .counteract-dialog .window-content {
@@ -139,44 +136,6 @@
   margin: 0;
 }
 
-.counteract-dialog .hint.no-target {
-  display: flex;
-  gap: 0.4rem;
-  align-items: baseline;
-  margin: 0;
-}
-
-/* Odds preview */
-.counteract-dialog .preview {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--ca-tone);
-  background: color-mix(in srgb, var(--ca-tone) 12%, transparent);
-}
-
-.counteract-dialog .preview.good { --ca-tone: var(--ca-good); }
-.counteract-dialog .preview.fair { --ca-tone: var(--ca-fair); }
-.counteract-dialog .preview.poor,
-.counteract-dialog .preview.impossible { --ca-tone: var(--ca-poor); }
-
-.counteract-dialog .preview .chance {
-  font-size: var(--font-size-20);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--ca-tone);
-}
-
-.counteract-dialog .preview > i {
-  color: var(--ca-tone);
-}
-
-.counteract-dialog .preview .needs strong {
-  color: var(--color-text-emphatic);
-}
-
 /* ---------- Chat card ---------- */
 
 .counteract-chat-card {
@@ -281,29 +240,6 @@
 .counteract-chat-card .degree.success { color: var(--ca-success); }
 .counteract-chat-card .degree.failure { color: var(--ca-failure); }
 .counteract-chat-card .degree.criticalFailure { color: var(--ca-crit-failure); }
-
-.counteract-chat-card .result {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.35rem 0.5rem;
-  border-left: 4px solid var(--ca-result);
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--ca-result) 10%, transparent);
-}
-
-.counteract-chat-card .result.success { --ca-result: var(--ca-crit-success); }
-.counteract-chat-card .result.failure { --ca-result: var(--ca-crit-failure); }
-
-.counteract-chat-card .result strong {
-  color: var(--ca-result);
-  font-size: var(--font-size-14);
-}
-
-.counteract-chat-card .result .explanation {
-  font-size: var(--font-size-12);
-  opacity: 0.85;
-}
 
 .counteract-chat-card button[data-counteract-remove] {
   margin-top: 0.15rem;

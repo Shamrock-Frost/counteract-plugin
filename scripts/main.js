@@ -356,35 +356,6 @@ const COUNTERACT_MODE = {
 
 
 /**
- * The minimum total needed to reach each degree of success against a DC
- */
-const DEGREE_MIN_TOTAL = {
-  [DEGREE.FAILURE]: (dc) => dc - 9,
-  [DEGREE.SUCCESS]: (dc) => dc,
-  [DEGREE.CRITICAL_SUCCESS]: (dc) => dc + 10
-};
-
-/**
- * Work out what a counteract check needs before it is rolled
- * @param {Object} check - { sourceRank, targetRank, modifier, dc }
- * @returns {Object} - { possible, degree, total, chance } where degree is the
- *   lowest degree of success that counteracts and chance is a percentage
- */
-function previewCounteract({ sourceRank, targetRank, modifier, dc }) {
-  const degree = [DEGREE.FAILURE, DEGREE.SUCCESS, DEGREE.CRITICAL_SUCCESS]
-    .find(d => checkCounteract(sourceRank, targetRank, d).success) ?? null;
-  if (!degree) return { possible: false, degree: null, total: null, chance: 0 };
-
-  // Count the d20 faces that counteract, including natural 1 and 20 adjustments
-  let faces = 0;
-  for (let die = 1; die <= 20; die++) {
-    const result = getDegreeOfSuccess(die + modifier, dc, die);
-    if (checkCounteract(sourceRank, targetRank, result).success) faces++;
-  }
-  return { possible: true, degree, total: DEGREE_MIN_TOTAL[degree](dc), chance: faces * 5 };
-}
-
-/**
  * The actors a user can counteract with: their owned characters and NPCs, plus
  * the actors of controlled tokens (unlinked NPC tokens aren't in game.actors)
  * @returns {Actor[]}
@@ -403,7 +374,7 @@ function getSourceActors() {
 
 /**
  * Counteract window: pick what you're counteracting with and what you're
- * counteracting, preview the odds, roll
+ * counteracting, roll
  */
 class CounteractDialog extends foundry.applications.api.HandlebarsApplicationMixin(foundry.applications.api.ApplicationV2) {
   constructor(options = {}) {
@@ -491,8 +462,6 @@ class CounteractDialog extends foundry.applications.api.HandlebarsApplicationMix
     const actor = this.actor;
     const spells = actor ? getSpellsFromActor(actor) : [];
     const targetOptions = this.#targetOptions();
-    const { sourceRank, targetRank, modifier, targetDC } = this.check;
-    const preview = previewCounteract({ sourceRank, targetRank, modifier, dc: targetDC });
 
     return {
       ...this.check,
@@ -505,13 +474,7 @@ class CounteractDialog extends foundry.applications.api.HandlebarsApplicationMix
       recentSpells: targetOptions.filter(o => o.recentlyCast),
       targetOptions: targetOptions.filter(o => !o.recentlyCast),
       rankOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      modifierLabel: modifier >= 0 ? `+${modifier}` : `${modifier}`,
-      dcHint: game.i18n.localize(`COUNTERACT.Dialog.DCSource.${this.check.dcSource}`),
-      preview: {
-        ...preview,
-        degreeLabel: preview.degree ? game.i18n.localize(`COUNTERACT.Degree.${preview.degree}`) : "",
-        tone: !preview.possible ? "impossible" : preview.chance >= 65 ? "good" : preview.chance >= 35 ? "fair" : "poor"
-      }
+      dcHint: game.i18n.localize(`COUNTERACT.Dialog.DCSource.${this.check.dcSource}`)
     };
   }
 
@@ -646,15 +609,6 @@ class CounteractDialog extends foundry.applications.api.HandlebarsApplicationMix
       isNat: dieResult === 20 ? "nat20" : dieResult === 1 ? "nat1" : "",
       degreeOfSuccess,
       degreeLabel: game.i18n.localize(`COUNTERACT.Degree.${degreeOfSuccess}`),
-      success: result.success,
-      resultLabel: game.i18n.localize(result.success ? "COUNTERACT.Result.Counteracted" : "COUNTERACT.Result.Failed"),
-      explanation: result.threshold === null
-        ? game.i18n.localize("COUNTERACT.Result.ExplainCritFail")
-        : game.i18n.format("COUNTERACT.Result.Explain", {
-          degree: game.i18n.localize(`COUNTERACT.Degree.${degreeOfSuccess}`),
-          threshold: Math.max(result.threshold, 0),
-          rank: targetRank
-        }),
       canRemove: result.success && !!effect
     });
 
@@ -727,7 +681,6 @@ Hooks.once("ready", () => {
     openDispel: () => openCounteractDialog({ mode: COUNTERACT_MODE.DISPEL }),
     openCounterspell: () => openCounteractDialog({ mode: COUNTERACT_MODE.COUNTERSPELL }),
     checkCounteract,
-    previewCounteract,
     calculateCounteractRank,
     calculateCounteractDC,
     getEffectsOnToken,
@@ -830,7 +783,6 @@ export {
   CounteractDialog,
   openCounteractDialog,
   checkCounteract,
-  previewCounteract,
   calculateCounteractRank,
   calculateCounteractDC,
   getSpellDC,
