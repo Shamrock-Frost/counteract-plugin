@@ -1,223 +1,310 @@
-/* Counteract Plugin Styles */
+/* Counteract Plugin Styles
+ * The window follows Foundry's light/dark theme variables; the chat card
+ * follows PF2e's chat card look and degree-of-success colors. */
 
-/* Dialog Styling */
+/* ---------- Window ---------- */
+
 .counteract-dialog {
-  background: var(--color-bg, #1c1c1c);
+  --ca-gap: 0.5rem;
+  --ca-good: var(--color-level-success, #2e7d32);
+  --ca-fair: var(--color-level-warning, #b8860b);
+  --ca-poor: var(--color-level-error, #b3261e);
 }
 
 .counteract-dialog .window-content {
-  padding: 10px;
+  gap: 0.75rem;
 }
 
-.counteract-dialog form {
+.counteract-dialog .counteract-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.75rem;
 }
 
-.counteract-dialog .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* Mode toggle: a two-way segmented control */
+.counteract-dialog .mode-toggle legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
-.counteract-dialog .form-group label {
-  font-weight: bold;
-  font-size: 0.9em;
-  color: var(--color-text-dark-primary, #ccc);
+.counteract-dialog .mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 
-.counteract-dialog .form-group input,
-.counteract-dialog .form-group select {
-  padding: 6px 8px;
-  border: 1px solid var(--color-border-light, #444);
-  border-radius: 4px;
-  background: #2a2a2a;
-  color: #eeeeee;
-  color-scheme: dark;
-}
-
-.counteract-dialog .form-group input::placeholder {
-  color: #888;
-}
-
-.counteract-dialog .form-group select option {
-  background: #2a2a2a;
-  color: #eeeeee;
-}
-
-.counteract-dialog .form-group-inline {
-  display: flex;
-  gap: 10px;
-}
-
-.counteract-dialog .form-group-inline .form-group {
-  flex: 1;
-}
-
-.counteract-dialog .section-header {
+.counteract-dialog .mode-toggle label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 1em;
-  font-weight: bold;
-  color: var(--color-text-hyperlink, #6ba5ff);
-  border-bottom: 1px solid var(--color-border-light, #444);
-  padding-bottom: 4px;
-  margin-top: 10px;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  transition: background-color 120ms, color 120ms;
 }
 
-.counteract-dialog button[name="rollCounteract"] {
-  margin-top: 15px;
-  padding: 10px;
-  font-size: 1.1em;
-  font-weight: bold;
-  background: var(--color-primary, #5e2d91);
-  color: white;
+.counteract-dialog .mode-toggle label:hover {
+  color: var(--color-text-emphatic);
+}
+
+.counteract-dialog .mode-toggle label.active {
+  background: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+  color: var(--color-text-emphatic);
+}
+
+.counteract-dialog .mode-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.counteract-dialog .mode-toggle label:has(input:focus-visible) {
+  outline: 2px solid var(--color-border-highlight);
+  outline-offset: -2px;
+}
+
+/* A side: source or target */
+.counteract-dialog .side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ca-gap);
+}
+
+.counteract-dialog .side-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.counteract-dialog .side-header img,
+.counteract-dialog .side-header > i {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
+  border-radius: 50%;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-subtle);
 }
 
-.counteract-dialog button[name="rollCounteract"]:hover {
-  background: var(--color-primary-dark, #4a2373);
+.counteract-dialog .side-header h3 {
+  margin: 0;
+  border: none;
+  font-size: var(--font-size-14);
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
-.counteract-dialog button[name="refreshTarget"] {
-  padding: 4px 8px;
-  font-size: 0.85em;
-  background: var(--color-bg-option, #333);
-  border: 1px solid var(--color-border-light, #444);
-  border-radius: 4px;
-  cursor: pointer;
+.counteract-dialog .side-header .target-name {
+  color: var(--color-text-emphatic);
+  margin-left: 0.15rem;
 }
 
-/* Chat Card Styling */
-.counteract-chat-card {
-  background: var(--color-bg, #1c1c1c);
-  color: #e8e8e8;
+.counteract-dialog .form-group > label {
+  flex: 0 0 7rem;
+}
+
+/* Two short fields side by side, label above */
+.counteract-dialog .pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.counteract-dialog .form-group.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.counteract-dialog .form-group.stacked > * {
+  flex: none;
+}
+
+.counteract-dialog .form-group.stacked .hint {
+  margin: 0;
+}
+
+.counteract-dialog .hint.no-target {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  margin: 0;
+}
+
+/* Odds preview */
+.counteract-dialog .preview {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  padding: 10px;
-  border: 1px solid var(--color-border-light, #444);
+  border: 1px solid var(--ca-tone);
+  background: color-mix(in srgb, var(--ca-tone) 12%, transparent);
+}
+
+.counteract-dialog .preview.good { --ca-tone: var(--ca-good); }
+.counteract-dialog .preview.fair { --ca-tone: var(--ca-fair); }
+.counteract-dialog .preview.poor,
+.counteract-dialog .preview.impossible { --ca-tone: var(--ca-poor); }
+
+.counteract-dialog .preview .chance {
+  font-size: var(--font-size-20);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ca-tone);
+}
+
+.counteract-dialog .preview > i {
+  color: var(--ca-tone);
+}
+
+.counteract-dialog .preview .needs strong {
+  color: var(--color-text-emphatic);
+}
+
+/* ---------- Chat card ---------- */
+
+.counteract-chat-card {
+  --ca-crit-success: var(--color-pf-text-critical-success, rgb(0, 128, 0));
+  --ca-success: var(--color-pf-text-success, rgb(0, 0, 255));
+  --ca-failure: var(--color-pf-text-failure, rgb(255, 69, 0));
+  --ca-crit-failure: var(--color-pf-text-critical-failure, rgb(255, 0, 0));
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .counteract-chat-card .card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1.1em;
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: var(--color-text-hyperlink, #6ba5ff);
+  gap: 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px groove var(--color-border-light-primary, #b5b3a4);
 }
 
-.counteract-chat-card .card-header i {
-  font-size: 1.2em;
+.counteract-chat-card .card-header img {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: none;
 }
 
-.counteract-chat-card .roll-details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 0.9em;
+.counteract-chat-card .card-header h3 {
+  margin: 0;
+  border: none;
+  font-size: var(--font-size-16);
+  line-height: 1.1;
 }
 
-.counteract-chat-card .roll-details .detail {
+.counteract-chat-card .card-header .subtitle {
+  font-size: var(--font-size-12);
+  opacity: 0.75;
+}
+
+.counteract-chat-card .versus {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: var(--font-size-13);
+}
+
+.counteract-chat-card .versus img {
+  width: 20px;
+  height: 20px;
+  border: none;
+}
+
+.counteract-chat-card .versus .target-name {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.counteract-chat-card .tag {
+  padding: 0 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: var(--font-size-11);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.counteract-chat-card .roll-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  font-variant-numeric: tabular-nums;
+}
+
+.counteract-chat-card .roll-line .die {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6rem;
+  padding: 0 0.2rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.counteract-chat-card .roll-line .die.nat20 { color: var(--ca-crit-success); }
+.counteract-chat-card .roll-line .die.nat1 { color: var(--ca-crit-failure); }
+
+.counteract-chat-card .roll-line .total {
+  font-size: var(--font-size-20);
+  font-weight: 700;
+}
+
+.counteract-chat-card .roll-line .degree {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+.counteract-chat-card .degree.criticalSuccess { color: var(--ca-crit-success); }
+.counteract-chat-card .degree.success { color: var(--ca-success); }
+.counteract-chat-card .degree.failure { color: var(--ca-failure); }
+.counteract-chat-card .degree.criticalFailure { color: var(--ca-crit-failure); }
+
+.counteract-chat-card .result {
   display: flex;
   flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem 0.5rem;
+  border-left: 4px solid var(--ca-result);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ca-result) 10%, transparent);
 }
 
-.counteract-chat-card .roll-details .detail-label {
-  font-size: 0.8em;
-  color: var(--color-text-dark-secondary, #888);
-  text-transform: uppercase;
+.counteract-chat-card .result.success { --ca-result: var(--ca-crit-success); }
+.counteract-chat-card .result.failure { --ca-result: var(--ca-crit-failure); }
+
+.counteract-chat-card .result strong {
+  color: var(--ca-result);
+  font-size: var(--font-size-14);
 }
 
-.counteract-chat-card .roll-details .detail-value {
-  font-weight: bold;
+.counteract-chat-card .result .explanation {
+  font-size: var(--font-size-12);
+  opacity: 0.85;
 }
 
-.counteract-chat-card .roll-display {
-  background: var(--color-bg-option, #2a2a2a);
-  border-radius: 4px;
-  padding: 8px;
-  text-align: center;
-  margin-bottom: 10px;
+.counteract-chat-card button[data-counteract-remove] {
+  margin-top: 0.15rem;
 }
-
-.counteract-chat-card .roll-formula {
-  font-size: 1.2em;
-  font-weight: bold;
-}
-
-.counteract-chat-card .roll-vs {
-  font-size: 0.85em;
-  color: var(--color-text-dark-secondary, #888);
-  margin-top: 4px;
-}
-
-.counteract-chat-card .degree-of-success {
-  text-align: center;
-  font-size: 0.9em;
-  margin-bottom: 10px;
-  padding: 4px;
-  border-radius: 4px;
-  background: var(--color-bg-option, #333);
-}
-
-.counteract-chat-card .degree-of-success.criticalSuccess {
-  color: #00ff00;
-  background: rgba(0, 255, 0, 0.1);
-}
-
-.counteract-chat-card .degree-of-success.success {
-  color: #7fff00;
-  background: rgba(127, 255, 0, 0.1);
-}
-
-.counteract-chat-card .degree-of-success.failure {
-  color: #ff7700;
-  background: rgba(255, 119, 0, 0.1);
-}
-
-.counteract-chat-card .degree-of-success.criticalFailure {
-  color: #ff0000;
-  background: rgba(255, 0, 0, 0.1);
-}
-
-.counteract-chat-card .result-banner {
-  text-align: center;
-  font-size: 1.3em;
-  font-weight: bold;
-  padding: 10px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-.counteract-chat-card .result-banner.success {
-  background: linear-gradient(135deg, #1a4d1a 0%, #2d7a2d 100%);
-  color: #00ff00;
-  border: 2px solid #00aa00;
-  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-}
-
-.counteract-chat-card .result-banner.failure {
-  background: linear-gradient(135deg, #4d1a1a 0%, #7a2d2d 100%);
-  color: #ff4444;
-  border: 2px solid #aa0000;
-  text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-}
-
-.counteract-chat-card .rank-comparison {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.85em;
-  margin-top: 8px;
-  color: var(--color-text-dark-secondary, #888);
-}
-

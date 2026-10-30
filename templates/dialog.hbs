@@ -1,159 +1,143 @@
-<form class="counteract-form">
-  {{!-- Source Section --}}
-  <div class="section-header">
-    <i class="fas fa-user-circle"></i> {{localize "COUNTERACT.Dialog.SourceSection"}}
-  </div>
+<div class="counteract-body">
+  {{!-- Mode toggle --}}
+  <fieldset class="mode-toggle">
+    <legend>{{localize "COUNTERACT.ModeSelect.Title"}}</legend>
+    <label class="{{#unless isCounterspell}}active{{/unless}}">
+      <input type="radio" name="mode" value="dispel" {{#unless isCounterspell}}checked{{/unless}}>
+      <i class="fa-solid fa-wand-magic-sparkles" inert></i> {{localize "COUNTERACT.ModeSelect.DispelEffect"}}
+    </label>
+    <label class="{{#if isCounterspell}}active{{/if}}">
+      <input type="radio" name="mode" value="counterspell" {{#if isCounterspell}}checked{{/if}}>
+      <i class="fa-solid fa-shield-halved" inert></i> {{localize "COUNTERACT.ModeSelect.Counterspell"}}
+    </label>
+  </fieldset>
 
-  <div class="form-group">
-    <label for="actorId">{{localize "COUNTERACT.Dialog.Actor"}}</label>
-    <select name="actorId" id="actorId">
-      <option value="">-- {{localize "COUNTERACT.Dialog.SelectActor"}} --</option>
-      {{#each actors}}
-        <option value="{{this.id}}" {{#if (eq this.id ../defaultActorId)}}selected{{/if}}>
-          {{this.name}}
-        </option>
-      {{/each}}
-    </select>
-  </div>
+  {{!-- Source --}}
+  <section class="side">
+    <header class="side-header">
+      {{#if actor}}<img src="{{actor.img}}" alt="">{{else}}<i class="fa-solid fa-user" inert></i>{{/if}}
+      <h3>{{localize "COUNTERACT.Dialog.SourceSection"}}</h3>
+    </header>
 
-  <div class="form-group">
-    <label for="spellId">{{localize "COUNTERACT.Dialog.Spell"}}</label>
-    <select name="spellId" id="spellId">
-      <option value="">-- {{localize "COUNTERACT.Dialog.SelectSpell"}} --</option>
-      {{#each spells}}
-        <option value="{{this.id}}" data-rank="{{this.rank}}" data-entry-id="{{this.entryId}}" {{#if (eq this.id ../defaultSpellId)}}selected{{/if}}>
-          {{this.name}} (Rank {{this.rank}}){{#if this.hasCounteractTrait}} [Counteract]{{/if}}
-        </option>
-      {{/each}}
-    </select>
-  </div>
-
-  <div class="form-group-inline">
     <div class="form-group">
-      <label for="sourceRank">{{localize "COUNTERACT.Dialog.SourceRank"}}</label>
-      <select name="sourceRank" id="sourceRank">
-        {{#each rankOptions}}
-          <option value="{{this}}" {{#if (eq this ../defaultSourceRank)}}selected{{/if}}>{{this}}</option>
+      <label for="counteract-actor">{{localize "COUNTERACT.Dialog.Actor"}}</label>
+      <select name="actorUuid" id="counteract-actor">
+        <option value="">{{localize "COUNTERACT.Dialog.SelectActor"}}</option>
+        {{#each actors}}
+          <option value="{{uuid}}" {{#if (eq uuid ../actorUuid)}}selected{{/if}}>{{name}}</option>
         {{/each}}
       </select>
     </div>
+
     <div class="form-group">
-      <label for="modifier">{{localize "COUNTERACT.Dialog.Modifier"}}</label>
-      <input type="number" name="modifier" id="modifier" value="{{defaultModifier}}">
+      <label for="counteract-spell">{{localize "COUNTERACT.Dialog.Spell"}}</label>
+      <select name="spellId" id="counteract-spell" {{#unless actor}}disabled{{/unless}}>
+        <option value="">{{localize "COUNTERACT.Dialog.SelectSpell"}}</option>
+        {{#if counteractSpells.length}}
+          <optgroup label="{{localize "COUNTERACT.Dialog.CounteractSpells"}}">
+            {{#each counteractSpells}}
+              <option value="{{id}}" {{#if (eq id ../spellId)}}selected{{/if}}>{{name}} ({{localize "COUNTERACT.Dialog.RankN" rank=rank}})</option>
+            {{/each}}
+          </optgroup>
+        {{/if}}
+        {{#if otherSpells.length}}
+          <optgroup label="{{localize "COUNTERACT.Dialog.OtherSpells"}}">
+            {{#each otherSpells}}
+              <option value="{{id}}" {{#if (eq id ../spellId)}}selected{{/if}}>{{name}} ({{localize "COUNTERACT.Dialog.RankN" rank=rank}})</option>
+            {{/each}}
+          </optgroup>
+        {{/if}}
+      </select>
     </div>
-  </div>
 
-  {{!-- Target Section --}}
-  <div class="section-header">
-    <span>
-      {{#if isCounterspell}}
-        <i class="fas fa-hat-wizard"></i> {{localize "COUNTERACT.Dialog.CasterSection"}}
-      {{else}}
-        <i class="fas fa-crosshairs"></i> {{localize "COUNTERACT.Dialog.TargetSection"}}
-      {{/if}}
-    </span>
-    <button type="button" name="refreshTarget" title="{{localize "COUNTERACT.Dialog.RefreshTarget"}}">
-      <i class="fas fa-sync-alt"></i>
-    </button>
-  </div>
-
-  {{#if isCounterspell}}
-    {{!-- Counterspell Mode: Target is the caster --}}
-    {{#if hasTarget}}
-      <div class="form-group">
-        <label>{{localize "COUNTERACT.Dialog.TargetCaster"}}: <strong>{{targetName}}</strong></label>
-      </div>
-
-      <div class="form-group">
-        <label for="targetSpellId">{{localize "COUNTERACT.Dialog.SpellBeingCast"}}</label>
-        <select name="targetSpellId" id="targetSpellId">
-          <option value="">-- {{localize "COUNTERACT.Dialog.SelectSpell"}} --</option>
-          {{#each targetSpells}}
-            <option value="{{this.id}}" data-rank="{{#if this.castRank}}{{this.castRank}}{{else}}{{this.rank}}{{/if}}">
-              {{this.name}} (Rank {{#if this.castRank}}{{this.castRank}}{{else}}{{this.rank}}{{/if}}){{#if this.recentlyCast}} ★{{/if}}
-            </option>
-          {{/each}}
-          <option value="manual">-- {{localize "COUNTERACT.Dialog.ManualInput"}} --</option>
+    <div class="pair">
+      <div class="form-group stacked">
+        <label for="counteract-source-rank">{{localize "COUNTERACT.Dialog.SourceRank"}}</label>
+        <select name="sourceRank" id="counteract-source-rank">
+          {{#each rankOptions}}<option value="{{this}}" {{#if (eq this ../sourceRank)}}selected{{/if}}>{{this}}</option>{{/each}}
         </select>
       </div>
+      <div class="form-group stacked">
+        <label for="counteract-modifier">{{localize "COUNTERACT.Dialog.Modifier"}}</label>
+        <input type="number" name="modifier" id="counteract-modifier" value="{{modifier}}" step="1">
+      </div>
+    </div>
+  </section>
 
-      <div class="form-group hint">
-        <em>★ = {{localize "COUNTERACT.Dialog.RecentlyCast"}}</em>
+  {{!-- Target --}}
+  <section class="side">
+    <header class="side-header">
+      {{#if target}}<img src="{{target.img}}" alt="">{{else}}<i class="fa-solid fa-crosshairs" inert></i>{{/if}}
+      <h3>
+        {{#if target}}
+          {{#if isCounterspell}}{{localize "COUNTERACT.Dialog.CasterSection"}}{{else}}{{localize "COUNTERACT.Dialog.TargetSection"}}{{/if}}
+          <span class="target-name">{{target.name}}</span>
+        {{else}}
+          {{localize "COUNTERACT.Dialog.NoTargetSection"}}
+        {{/if}}
+      </h3>
+    </header>
+
+    {{#if target}}
+      <div class="form-group">
+        <label for="counteract-target-pick">
+          {{#if isCounterspell}}{{localize "COUNTERACT.Dialog.SpellBeingCast"}}{{else}}{{localize "COUNTERACT.Dialog.TargetEffect"}}{{/if}}
+        </label>
+        <select name="targetPick" id="counteract-target-pick">
+          <option value="">{{#if isCounterspell}}{{localize "COUNTERACT.Dialog.SelectSpell"}}{{else}}{{localize "COUNTERACT.Dialog.SelectEffect"}}{{/if}}</option>
+          {{#if recentSpells.length}}
+            <optgroup label="{{localize "COUNTERACT.Dialog.RecentlyCast"}}">
+              {{#each recentSpells}}
+                <option value="{{id}}" {{#if (eq id ../targetPick)}}selected{{/if}}>{{name}} ({{localize "COUNTERACT.Dialog.RankN" rank=rank}})</option>
+              {{/each}}
+            </optgroup>
+          {{/if}}
+          {{#if isCounterspell}}<optgroup label="{{localize "COUNTERACT.Dialog.KnownSpells"}}">{{/if}}
+            {{#each targetOptions}}
+              <option value="{{id}}" {{#if (eq id ../targetPick)}}selected{{/if}}>{{name}} ({{localize "COUNTERACT.Dialog.RankN" rank=rank}})</option>
+            {{/each}}
+          {{#if isCounterspell}}</optgroup>{{/if}}
+        </select>
+        {{#unless isCounterspell}}{{#unless targetOptions.length}}
+          <p class="hint">{{localize "COUNTERACT.Dialog.NoEffects"}}</p>
+        {{/unless}}{{/unless}}
       </div>
     {{else}}
-      <div class="form-group">
-        <label><em>{{localize "COUNTERACT.Dialog.NoTargetCaster"}}</em></label>
-      </div>
+      <p class="hint no-target">
+        <i class="fa-solid fa-circle-info" inert></i>
+        {{#if isCounterspell}}{{localize "COUNTERACT.Dialog.NoTargetCaster"}}{{else}}{{localize "COUNTERACT.Dialog.NoTarget"}}{{/if}}
+      </p>
     {{/if}}
 
     <div class="form-group">
-      <label for="targetName">{{localize "COUNTERACT.Dialog.SpellName"}}</label>
-      <input type="text" name="targetName" id="targetName" value="" placeholder="{{localize "COUNTERACT.Dialog.SpellNamePlaceholder"}}">
+      <label for="counteract-target-name">{{#if isCounterspell}}{{localize "COUNTERACT.Dialog.SpellName"}}{{else}}{{localize "COUNTERACT.Dialog.TargetName"}}{{/if}}</label>
+      <input type="text" name="targetName" id="counteract-target-name" value="{{targetName}}"
+             placeholder="{{#if isCounterspell}}{{localize "COUNTERACT.Dialog.SpellNamePlaceholder"}}{{else}}{{localize "COUNTERACT.Dialog.TargetNamePlaceholder"}}{{/if}}">
     </div>
 
-    <div class="form-group-inline">
-      <div class="form-group">
-        <label for="targetRank">{{localize "COUNTERACT.Dialog.SpellRank"}}</label>
-        <select name="targetRank" id="targetRank">
-          {{#each rankOptions}}
-            <option value="{{this}}" {{#if (eq this 1)}}selected{{/if}}>{{this}}</option>
-          {{/each}}
+    <div class="pair">
+      <div class="form-group stacked">
+        <label for="counteract-target-rank">{{#if isCounterspell}}{{localize "COUNTERACT.Dialog.SpellRank"}}{{else}}{{localize "COUNTERACT.Dialog.TargetRank"}}{{/if}}</label>
+        <select name="targetRank" id="counteract-target-rank">
+          {{#each rankOptions}}<option value="{{this}}" {{#if (eq this ../targetRank)}}selected{{/if}}>{{this}}</option>{{/each}}
         </select>
       </div>
-      <div class="form-group">
-        <label for="targetDC">{{localize "COUNTERACT.Dialog.CasterDC"}}</label>
-        <input type="number" name="targetDC" id="targetDC" value="{{targetDC}}" min="1">
+      <div class="form-group stacked">
+        <label for="counteract-target-dc">{{localize "COUNTERACT.Dialog.TargetDC"}}</label>
+        <input type="number" name="targetDC" id="counteract-target-dc" value="{{targetDC}}" min="1" step="1">
+        <p class="hint">{{dcHint}}</p>
       </div>
     </div>
+  </section>
 
-  {{else}}
-    {{!-- Dispel Mode: Target has an effect --}}
-    {{#if hasTarget}}
-      <div class="form-group">
-        <label>{{localize "COUNTERACT.Dialog.TargetToken"}}: <strong>{{targetName}}</strong></label>
-      </div>
-
-      <div class="form-group">
-        <label for="targetEffectId">{{localize "COUNTERACT.Dialog.TargetEffect"}}</label>
-        <select name="targetEffectId" id="targetEffectId">
-          <option value="">-- {{localize "COUNTERACT.Dialog.SelectEffect"}} --</option>
-          {{#each targetEffects}}
-            <option value="{{this.id}}" data-rank="{{this.rank}}" data-dc="{{this.dc}}" data-name="{{this.name}}">
-              {{this.name}} (Level {{this.level}}, Rank {{this.rank}})
-            </option>
-          {{/each}}
-          <option value="manual">-- {{localize "COUNTERACT.Dialog.ManualInput"}} --</option>
-        </select>
-      </div>
+  {{!-- What the roll needs --}}
+  <div class="preview {{preview.tone}}">
+    {{#if preview.possible}}
+      <span class="chance">{{preview.chance}}%</span>
+      <span class="needs">{{{localize "COUNTERACT.Preview.Needs" degree=preview.degreeLabel total=preview.total modifier=modifierLabel}}}</span>
     {{else}}
-      <div class="form-group">
-        <label><em>{{localize "COUNTERACT.Dialog.NoTarget"}}</em></label>
-      </div>
+      <i class="fa-solid fa-ban" inert></i>
+      <span class="needs">{{localize "COUNTERACT.Preview.Impossible" rank=targetRank}}</span>
     {{/if}}
-
-    <div class="form-group">
-      <label for="targetName">{{localize "COUNTERACT.Dialog.TargetName"}}</label>
-      <input type="text" name="targetName" id="targetName" value="" placeholder="{{localize "COUNTERACT.Dialog.TargetNamePlaceholder"}}">
-    </div>
-
-    <div class="form-group-inline">
-      <div class="form-group">
-        <label for="targetRank">{{localize "COUNTERACT.Dialog.TargetRank"}}</label>
-        <select name="targetRank" id="targetRank">
-          {{#each rankOptions}}
-            <option value="{{this}}" {{#if (eq this 1)}}selected{{/if}}>{{this}}</option>
-          {{/each}}
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="targetDC">{{localize "COUNTERACT.Dialog.TargetDC"}}</label>
-        <input type="number" name="targetDC" id="targetDC" value="15" min="1">
-      </div>
-    </div>
-  {{/if}}
-
-  {{!-- Roll Button --}}
-  <button type="button" name="rollCounteract">
-    <i class="fas fa-dice-d20"></i> {{localize "COUNTERACT.Dialog.RollCounteract"}}
-  </button>
-</form>
+  </div>
+</div>

@@ -106,11 +106,12 @@ function getDegreeOfSuccess(total, dc, dieResult) {
   const difference = total - dc;
   let degree;
 
+  // Beating the DC by 10 is a critical success; missing it by 10 is a critical failure
   if (difference >= 10) {
     degree = DEGREE.CRITICAL_SUCCESS;
   } else if (difference >= 0) {
     degree = DEGREE.SUCCESS;
-  } else if (difference >= -10) {
+  } else if (difference > -10) {
     degree = DEGREE.FAILURE;
   } else {
     degree = DEGREE.CRITICAL_FAILURE;
@@ -353,295 +354,268 @@ const COUNTERACT_MODE = {
   COUNTERSPELL: "counterspell"  // Countering a spell being cast
 };
 
-/**
- * Show mode selection dialog
- * @returns {Promise<string|null>} - The selected mode, or null if cancelled
- */
-async function showModeSelection() {
-  return new Promise((resolve) => {
-    new Dialog({
-      title: game.i18n.localize("COUNTERACT.ModeSelect.Title"),
-      content: `
-        <p style="margin-bottom: 1em;">${game.i18n.localize("COUNTERACT.ModeSelect.Prompt")}</p>
-      `,
-      buttons: {
-        dispel: {
-          icon: '<i class="fas fa-magic"></i>',
-          label: game.i18n.localize("COUNTERACT.ModeSelect.DispelEffect"),
-          callback: () => resolve(COUNTERACT_MODE.DISPEL)
-        },
-        counterspell: {
-          icon: '<i class="fas fa-shield-alt"></i>',
-          label: game.i18n.localize("COUNTERACT.ModeSelect.Counterspell"),
-          callback: () => resolve(COUNTERACT_MODE.COUNTERSPELL)
-        }
-      },
-      default: "dispel",
-      close: () => resolve(null)
-    }).render(true);
-  });
-}
 
 /**
- * Main entry point - shows mode selection then opens appropriate dialog
- * @param {Object} options - Options to pass to CounteractDialog
+ * The minimum total needed to reach each degree of success against a DC
  */
-async function openCounteractDialog(options = {}) {
-  // If mode is already specified (e.g., from chat card), skip selection
-  if (options.mode) {
-    new CounteractDialog(options).render(true);
-    return;
+const DEGREE_MIN_TOTAL = {
+  [DEGREE.FAILURE]: (dc) => dc - 9,
+  [DEGREE.SUCCESS]: (dc) => dc,
+  [DEGREE.CRITICAL_SUCCESS]: (dc) => dc + 10
+};
+
+/**
+ * Work out what a counteract check needs before it is rolled
+ * @param {Object} check - { sourceRank, targetRank, modifier, dc }
+ * @returns {Object} - { possible, degree, total, chance } where degree is the
+ *   lowest degree of success that counteracts and chance is a percentage
+ */
+function previewCounteract({ sourceRank, targetRank, modifier, dc }) {
+  const degree = [DEGREE.FAILURE, DEGREE.SUCCESS, DEGREE.CRITICAL_SUCCESS]
+    .find(d => checkCounteract(sourceRank, targetRank, d).success) ?? null;
+  if (!degree) return { possible: false, degree: null, total: null, chance: 0 };
+
+  // Count the d20 faces that counteract, including natural 1 and 20 adjustments
+  let faces = 0;
+  for (let die = 1; die <= 20; die++) {
+    const result = getDegreeOfSuccess(die + modifier, dc, die);
+    if (checkCounteract(sourceRank, targetRank, result).success) faces++;
   }
-
-  const mode = await showModeSelection();
-  if (!mode) return; // User cancelled
-
-  new CounteractDialog({ ...options, mode }).render(true);
+  return { possible: true, degree, total: DEGREE_MIN_TOTAL[degree](dc), chance: faces * 5 };
 }
 
 /**
- * Counteract Dialog Application
+ * The actors a user can counteract with: their owned characters and NPCs, plus
+ * the actors of controlled tokens (unlinked NPC tokens aren't in game.actors)
+ * @returns {Actor[]}
  */
-class CounteractDialog extends FormApplication {
+function getSourceActors() {
+  const actors = new Map();
+  for (const token of canvas.tokens?.controlled ?? []) {
+    if (token.actor?.isOwner) actors.set(token.actor.uuid, token.actor);
+  }
+  const owned = game.actors
+    .filter(a => a.isOwner && (a.type === "character" || a.type === "npc"))
+    .sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === "character" ? -1 : 1));
+  for (const actor of owned) actors.set(actor.uuid, actor);
+  return [...actors.values()];
+}
+
+/**
+ * Counteract window: pick what you're counteracting with and what you're
+ * counteracting, preview the odds, roll
+ */
+class CounteractDialog extends foundry.applications.api.HandlebarsApplicationMixin(foundry.applications.api.ApplicationV2) {
   constructor(options = {}) {
     super(options);
-    // Mode: "dispel" (default) or "counterspell"
-    this.mode = options.mode ?? COUNTERACT_MODE.DISPEL;
-    // Pre-populated data from chat card
-    this.preselectedActorId = options.actorId ?? null;
-    this.preselectedSpellId = options.spellId ?? null;
-    this.preselectedRank = options.castRank ?? null;
+    const actor = (options.actorUuid && fromUuidSync(options.actorUuid))
+      ?? (options.actorId && game.actors.get(options.actorId))
+      ?? canvas.tokens?.controlled?.[0]?.actor
+      ?? game.user?.character
+      ?? null;
+    const spell = options.spellId ? actor?.items.get(options.spellId) : null;
+
+    this.check = {
+      mode: options.mode ?? game.settings.get(MODULE_ID, "lastMode") ?? COUNTERACT_MODE.DISPEL,
+      actorUuid: actor?.uuid ?? "",
+      spellId: spell?.id ?? "",
+      sourceRank: options.castRank ?? spell?.rank ?? 1,
+      modifier: actor ? getSpellcastingModifier(actor, spell?.system?.location?.value ?? null) : 0
+    };
+    this.#readTarget();
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "counteract-dialog",
-      title: game.i18n.localize("COUNTERACT.DialogTitle"),
-      template: `modules/${MODULE_ID}/templates/dialog.hbs`,
-      classes: ["counteract-dialog", "pf2e"],
-      width: 400,
-      height: "auto",
-      closeOnSubmit: false
+  static DEFAULT_OPTIONS = {
+    id: "counteract-dialog",
+    tag: "form",
+    classes: ["counteract-dialog"],
+    window: { icon: "fa-solid fa-ban", contentClasses: ["standard-form"] },
+    position: { width: 440, height: "auto" },
+    form: { closeOnSubmit: false },
+    actions: {
+      roll: CounteractDialog.#onRoll
+    }
+  };
+
+  static PARTS = {
+    form: { template: `modules/${MODULE_ID}/templates/dialog.hbs` },
+    footer: { template: `modules/${MODULE_ID}/templates/dialog-footer.hbs` }
+  };
+
+  get title() {
+    return game.i18n.localize(this.check.mode === COUNTERACT_MODE.COUNTERSPELL
+      ? "COUNTERACT.DialogTitleCounterspell"
+      : "COUNTERACT.DialogTitle");
+  }
+
+  get isCounterspell() {
+    return this.check.mode === COUNTERACT_MODE.COUNTERSPELL;
+  }
+
+  get actor() {
+    return this.check.actorUuid ? fromUuidSync(this.check.actorUuid) : null;
+  }
+
+  /**
+   * Read the current target token and reset the target fields from it
+   */
+  #readTarget() {
+    const token = game.user?.targets?.first() ?? null;
+    this.targetToken = token;
+    Object.assign(this.check, {
+      targetPick: "",
+      targetName: "",
+      targetRank: 1,
+      // Counterspell defaults to the caster's spell DC; dispel waits for an effect
+      targetDC: this.isCounterspell && token?.actor ? (getSpellDC(token.actor) || SPELL_RANK_DC[1]) : SPELL_RANK_DC[1],
+      dcSource: this.isCounterspell && token?.actor && getSpellDC(token.actor) ? "caster" : "table"
     });
   }
 
-  get title() {
-    return this.mode === COUNTERACT_MODE.COUNTERSPELL
-      ? game.i18n.localize("COUNTERACT.DialogTitleCounterspell")
-      : game.i18n.localize("COUNTERACT.DialogTitle");
+  /** The options offered for the target: effects (dispel) or the caster's spells (counterspell) */
+  #targetOptions() {
+    const actor = this.targetToken?.actor;
+    if (!actor) return [];
+    if (!this.isCounterspell) return getEffectsOnToken(this.targetToken);
+
+    const recent = getRecentlyCastSpells(actor);
+    const recentIds = new Set(recent.map(s => s.id));
+    const known = getSpellsFromActor(actor);
+    return [
+      ...recent.map(r => ({ ...known.find(s => s.id === r.id), rank: r.rank, recentlyCast: true })).filter(s => s.id),
+      ...known.filter(s => !recentIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name))
+    ];
   }
 
-  async getData() {
-    const isCounterspell = this.mode === COUNTERACT_MODE.COUNTERSPELL;
-
-    // Get selected and targeted tokens
-    const selectedToken = canvas.tokens?.controlled?.[0];
-    const targetedTokens = game.user?.targets;
-    const targetToken = targetedTokens?.size > 0 ? targetedTokens.first() : null;
-
-    // Get actors that can cast spells (owned by user)
-    const actors = game.actors
-      .filter(a => a.isOwner && (a.type === "character" || a.type === "npc"))
-      .map(a => ({ id: a.id, name: a.name }));
-
-    // Use preselected actor if provided, otherwise fall back to token/character
-    const defaultActor = this.preselectedActorId
-      ? game.actors.get(this.preselectedActorId)
-      : (selectedToken?.actor ?? game.user?.character);
-
-    // Get spells from default actor (for source spell selection)
-    const spells = defaultActor ? getCounteractSpells(defaultActor) : [];
-
-    // Get spellcasting modifier (use preselected spell's entry if available)
-    const preselectedSpell = this.preselectedSpellId ? defaultActor?.items.get(this.preselectedSpellId) : null;
-    const entryId = preselectedSpell?.system?.location?.value ?? null;
-    const modifier = defaultActor ? getSpellcastingModifier(defaultActor, entryId) : 0;
-
-    // Use preselected rank if provided
-    const sourceRank = this.preselectedRank ?? preselectedSpell?.rank ?? 1;
-
-    // Mode-specific data
-    let targetEffects = [];
-    let targetSpells = [];
-    let targetDC = 15;
-    let targetName = targetToken?.name ?? "";
-    let hasTarget = !!targetToken;
-
-    if (isCounterspell && targetToken?.actor) {
-      // Counterspell mode: target is the caster, get their spells
-      const targetActor = targetToken.actor;
-      targetDC = getSpellDC(targetActor);
-
-      // Get target's spells, with recently cast ones first
-      const recentCasts = getRecentlyCastSpells(targetActor);
-      const allSpells = getSpellsFromActor(targetActor);
-
-      // Sort: recently cast spells first, then alphabetically
-      const recentIds = new Set(recentCasts.map(s => s.id));
-      targetSpells = [
-        ...recentCasts.map(recent => {
-          const spell = allSpells.find(s => s.id === recent.id);
-          return spell ? { ...spell, recentlyCast: true, castRank: recent.rank } : null;
-        }).filter(Boolean),
-        ...allSpells.filter(s => !recentIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name))
-      ];
-    } else if (!isCounterspell) {
-      // Dispel mode: get effects on target
-      targetEffects = targetToken ? getEffectsOnToken(targetToken) : [];
-    }
+  async _prepareContext(options) {
+    const actor = this.actor;
+    const spells = actor ? getSpellsFromActor(actor) : [];
+    const targetOptions = this.#targetOptions();
+    const { sourceRank, targetRank, modifier, targetDC } = this.check;
+    const preview = previewCounteract({ sourceRank, targetRank, modifier, dc: targetDC });
 
     return {
-      mode: this.mode,
-      isCounterspell,
-      actors,
-      spells,
-      targetEffects,
-      targetSpells,
-      defaultActorId: defaultActor?.id ?? "",
-      defaultSpellId: this.preselectedSpellId ?? "",
-      defaultSourceRank: sourceRank,
-      defaultModifier: modifier,
-      targetName,
-      targetDC,
-      hasTarget,
-      rankOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      ...this.check,
+      isCounterspell: this.isCounterspell,
+      actor,
+      actors: getSourceActors().map(a => ({ uuid: a.uuid, name: a.name })),
+      counteractSpells: spells.filter(s => s.hasCounteractTrait),
+      otherSpells: spells.filter(s => !s.hasCounteractTrait),
+      target: this.targetToken ? { name: this.targetToken.name, img: this.targetToken.document.texture.src } : null,
+      recentSpells: targetOptions.filter(o => o.recentlyCast),
+      targetOptions: targetOptions.filter(o => !o.recentlyCast),
+      rankOptions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      modifierLabel: modifier >= 0 ? `+${modifier}` : `${modifier}`,
+      dcHint: game.i18n.localize(`COUNTERACT.Dialog.DCSource.${this.check.dcSource}`),
+      preview: {
+        ...preview,
+        degreeLabel: preview.degree ? game.i18n.localize(`COUNTERACT.Degree.${preview.degree}`) : "",
+        tone: !preview.possible ? "impossible" : preview.chance >= 65 ? "good" : preview.chance >= 35 ? "fair" : "poor"
+      }
     };
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
+  /**
+   * Keep the state in step with the form, filling in dependent fields
+   * (choosing a spell sets its rank, choosing an effect sets its rank and DC)
+   */
+  _onChangeForm(formConfig, event) {
+    super._onChangeForm(formConfig, event);
+    const input = event.target;
+    const value = input.value;
+    const state = this.check;
 
-    // Actor selection change
-    html.find('select[name="actorId"]').on("change", async (event) => {
-      const actorId = event.target.value;
-      const actor = game.actors.get(actorId);
-
-      // Update spells dropdown
-      const spells = actor ? getCounteractSpells(actor) : [];
-      const spellSelect = html.find('select[name="spellId"]');
-      spellSelect.empty();
-      spellSelect.append('<option value="">-- Select Spell --</option>');
-      for (const spell of spells) {
-        const label = `${spell.name} (Rank ${spell.rank})${spell.hasCounteractTrait ? " [Counteract]" : ""}`;
-        const opt = document.createElement('option');
-        opt.value = spell.id;
-        opt.dataset.rank = spell.rank;
-        opt.dataset.entryId = spell.entryId ?? "";
-        opt.textContent = label;
-        spellSelect.append(opt);
+    switch (input.name) {
+      case "mode":
+        state.mode = value;
+        game.settings.set(MODULE_ID, "lastMode", value);
+        this.#readTarget();
+        break;
+      case "actorUuid": {
+        state.actorUuid = value;
+        state.spellId = "";
+        state.sourceRank = 1;
+        const actor = this.actor;
+        state.modifier = actor ? getSpellcastingModifier(actor) : 0;
+        break;
       }
-
-      // Reset modifier to first entry (will update when spell is selected)
-      const modifier = actor ? getSpellcastingModifier(actor) : 0;
-      html.find('input[name="modifier"]').val(modifier);
-    });
-
-    // Spell selection change - update rank and modifier based on spell's entry
-    html.find('select[name="spellId"]').on("change", (event) => {
-      const option = event.target.selectedOptions[0];
-      const rank = option?.dataset?.rank ?? 1;
-      const entryId = option?.dataset?.entryId || null;
-      html.find('select[name="sourceRank"]').val(rank);
-
-      // Update modifier based on the spell's spellcasting entry
-      const actorId = html.find('select[name="actorId"]').val();
-      const actor = game.actors.get(actorId);
-      if (actor) {
-        const modifier = getSpellcastingModifier(actor, entryId);
-        html.find('input[name="modifier"]').val(modifier);
+      case "spellId": {
+        state.spellId = value;
+        const spell = this.actor?.items.get(value);
+        if (spell) {
+          state.sourceRank = spell.rank ?? 1;
+          state.modifier = getSpellcastingModifier(this.actor, spell.system?.location?.value ?? null);
+        }
+        break;
       }
-    });
-
-    // Target effect selection change (dispel mode)
-    html.find('select[name="targetEffectId"]').on("change", (event) => {
-      const option = event.target.selectedOptions[0];
-
-      // If "Manual Input" is selected, reset to defaults with fallback DC
-      if (option?.value === "manual") {
-        html.find('select[name="targetRank"]').val(1);
-        html.find('input[name="targetName"]').val("");
-        html.find('input[name="targetDC"]').val(SPELL_RANK_DC[1] ?? 15);
-        return;
+      case "targetPick": {
+        state.targetPick = value;
+        const option = this.#targetOptions().find(o => o.id === value);
+        if (!option) {
+          state.targetName = "";
+          break;
+        }
+        state.targetName = option.name;
+        state.targetRank = option.rank;
+        if (!this.isCounterspell) {
+          state.targetDC = option.dc;
+          state.dcSource = option.dcSource;
+        }
+        break;
       }
-
-      const rank = option?.dataset?.rank ?? 1;
-      const dc = option?.dataset?.dc ?? 15;
-      const name = option?.dataset?.name ?? "";
-      html.find('select[name="targetRank"]').val(rank);
-      html.find('input[name="targetDC"]').val(dc);
-      if (name) {
-        html.find('input[name="targetName"]').val(name);
-      }
-    });
-
-    // Target spell selection change (counterspell mode)
-    html.find('select[name="targetSpellId"]').on("change", (event) => {
-      const option = event.target.selectedOptions[0];
-
-      // If "Manual Input" is selected, clear the auto-filled fields for fresh entry
-      // and set DC from fallback table
-      if (option?.value === "manual") {
-        html.find('select[name="targetRank"]').val(1);
-        html.find('input[name="targetName"]').val("");
-        html.find('input[name="targetDC"]').val(SPELL_RANK_DC[1] ?? 15);
-        return;
-      }
-
-      if (!option || option.value === "") return;
-
-      const rank = option?.dataset?.rank ?? 1;
-      const spellName = option?.textContent?.split(" (")[0] ?? "";
-      html.find('select[name="targetRank"]').val(rank);
-      html.find('input[name="targetName"]').val(spellName);
-      // Don't update DC here - counterspell mode uses target's spell DC which is already set
-    });
-
-    // Target rank change - auto-populate DC from fallback table
-    // This helps GMs who don't know the original caster's DC
-    html.find('select[name="targetRank"]').on("change", (event) => {
-      const rank = parseInt(event.target.value) || 1;
-      const fallbackDC = SPELL_RANK_DC[rank] ?? 15;
-      html.find('input[name="targetDC"]').val(fallbackDC);
-    });
-
-    // Refresh target button
-    html.find('button[name="refreshTarget"]').on("click", async () => {
-      await this.render(true);
-    });
-
-    // Roll button
-    html.find('button[name="rollCounteract"]').on("click", async () => {
-      await this._performCounteractCheck(html);
-    });
+      case "targetRank":
+        state.targetRank = Number(value) || 1;
+        // Follow the rank with the fallback table unless the DC came from somewhere real
+        if (state.dcSource === "table") state.targetDC = calculateCounteractDC(state.targetRank);
+        break;
+      case "targetDC":
+        state.targetDC = Math.max(1, Number(value) || 1);
+        state.dcSource = "manual";
+        break;
+      case "sourceRank":
+        state.sourceRank = Number(value) || 1;
+        break;
+      case "modifier":
+        state.modifier = Number(value) || 0;
+        break;
+      case "targetName":
+        state.targetName = value;
+        return; // nothing depends on the name
+    }
+    this.render();
   }
 
-  async _performCounteractCheck(html) {
-    const form = html.find("form")[0] ?? html[0];
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+  _onRender(context, options) {
+    super._onRender(context, options);
+    // The title follows the mode
+    const title = this.window?.title;
+    if (title) title.textContent = this.title;
+  }
 
-    // Validate actor selection
-    const actor = game.actors.get(data.actorId);
+  /** Re-read the target when the user targets a different token */
+  refreshTarget() {
+    this.#readTarget();
+    this.render();
+  }
+
+  static async #onRoll(event, target) {
+    const actor = this.actor;
     if (!actor) {
       ui.notifications.warn(game.i18n.localize("COUNTERACT.Warnings.NoActor"));
       return;
     }
 
-    // Parse and validate numeric inputs
-    const sourceRank = Math.max(1, Math.min(10, parseInt(data.sourceRank) || 1));
-    const targetRank = Math.max(1, Math.min(10, parseInt(data.targetRank) || 1));
-    const modifier = parseInt(data.modifier) || 0;
-    const targetDC = Math.max(1, parseInt(data.targetDC) || 15);
-    const targetName = data.targetName || "Unknown Effect";
+    const state = this.check;
+    const sourceRank = Math.clamp(Number(state.sourceRank) || 1, 1, 10);
+    const targetRank = Math.clamp(Number(state.targetRank) || 1, 1, 10);
+    const modifier = Number(state.modifier) || 0;
+    const targetDC = Math.max(1, Number(state.targetDC) || 15);
+    const targetName = state.targetName || game.i18n.localize("COUNTERACT.ChatCard.UnknownTarget");
+    const spell = actor.items.get(state.spellId);
 
-    // Get spell for display
-    const spell = actor.items.get(data.spellId);
-
-    // Roll the d20
     let roll;
     try {
-      roll = new Roll("1d20 + @mod", { mod: modifier });
-      await roll.evaluate();
+      roll = await new Roll("1d20 + @mod", { mod: modifier }).evaluate();
     } catch (error) {
       console.error(`${MODULE_ID} | Roll evaluation failed:`, error);
       ui.notifications.error(game.i18n.localize("COUNTERACT.Errors.RollFailed"));
@@ -649,58 +623,71 @@ class CounteractDialog extends FormApplication {
     }
     // Use neutral value (10) as fallback to avoid nat 1/20 logic issues
     const dieResult = roll.dice?.[0]?.results?.[0]?.result ?? 10;
-    const total = roll.total;
-
-    // Determine degree of success
-    const degreeOfSuccess = getDegreeOfSuccess(total, targetDC, dieResult);
-
-    // Check if counteract succeeds
+    const degreeOfSuccess = getDegreeOfSuccess(roll.total, targetDC, dieResult);
     const result = checkCounteract(sourceRank, targetRank, degreeOfSuccess);
 
-    // Prepare chat message data
-    const chatData = {
-      actorName: actor.name,
-      spellName: spell?.name ?? "Counteract",
+    // A successful dispel against a known effect can be removed from the chat card
+    const effect = !this.isCounterspell && state.targetPick
+      ? this.targetToken?.actor?.items.get(state.targetPick)
+      : null;
+
+    const content = await foundry.applications.handlebars.renderTemplate(`modules/${MODULE_ID}/templates/chat-card.hbs`, {
+      isCounterspell: this.isCounterspell,
+      spellName: spell?.name ?? game.i18n.localize("COUNTERACT.ChatCard.Title"),
+      spellImg: spell?.img ?? "icons/svg/cancel.svg",
       sourceRank,
       targetName,
+      targetImg: effect?.img ?? null,
       targetRank,
       targetDC,
-      roll: total,
+      total: roll.total,
       dieResult,
-      modifier,
+      modifierLabel: modifier >= 0 ? `+ ${modifier}` : `- ${Math.abs(modifier)}`,
+      isNat: dieResult === 20 ? "nat20" : dieResult === 1 ? "nat1" : "",
       degreeOfSuccess,
       degreeLabel: game.i18n.localize(`COUNTERACT.Degree.${degreeOfSuccess}`),
       success: result.success,
-      threshold: result.threshold,
-      resultLabel: result.success
-        ? game.i18n.localize("COUNTERACT.Result.Counteracted")
-        : game.i18n.localize("COUNTERACT.Result.Failed")
-    };
-
-    // Render chat card
-    const content = await foundry.applications.handlebars.renderTemplate(`modules/${MODULE_ID}/templates/chat-card.hbs`, chatData);
+      resultLabel: game.i18n.localize(result.success ? "COUNTERACT.Result.Counteracted" : "COUNTERACT.Result.Failed"),
+      explanation: result.threshold === null
+        ? game.i18n.localize("COUNTERACT.Result.ExplainCritFail")
+        : game.i18n.format("COUNTERACT.Result.Explain", {
+          degree: game.i18n.localize(`COUNTERACT.Degree.${degreeOfSuccess}`),
+          threshold: Math.max(result.threshold, 0),
+          rank: targetRank
+        }),
+      canRemove: result.success && !!effect
+    });
 
     await ChatMessage.create({
       author: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor }),
       content,
       rolls: [roll],
-      sound: CONFIG.sounds.dice
+      sound: CONFIG.sounds.dice,
+      flags: {
+        [MODULE_ID]: {
+          effectUuid: result.success && effect ? effect.uuid : null
+        }
+      }
     });
 
-    // Close dialog after successful roll
     this.close();
   }
+}
 
-  async _updateObject(event, formData) {
-    // Form submission handled by button click
-  }
+/**
+ * Open the counteract window, replacing one that is already open
+ * @param {Object} options - mode, actorUuid/actorId, spellId, castRank
+ */
+async function openCounteractDialog(options = {}) {
+  await foundry.applications.instances.get("counteract-dialog")?.close();
+  return new CounteractDialog(options).render({ force: true });
 }
 
 /**
  * Module Initialization
  */
-Hooks.once("init", async () => {
+Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing PF2e Counteract Automation`);
 
   // Register module settings
@@ -719,7 +706,15 @@ Hooks.once("init", async () => {
     scope: "client",
     config: true,
     type: Boolean,
-    default: true
+    default: false
+  });
+
+  // The mode the window opens in, remembered from last time
+  game.settings.register(MODULE_ID, "lastMode", {
+    scope: "client",
+    config: false,
+    type: String,
+    default: COUNTERACT_MODE.DISPEL
   });
 });
 
@@ -732,6 +727,7 @@ Hooks.once("ready", () => {
     openDispel: () => openCounteractDialog({ mode: COUNTERACT_MODE.DISPEL }),
     openCounterspell: () => openCounteractDialog({ mode: COUNTERACT_MODE.COUNTERSPELL }),
     checkCounteract,
+    previewCounteract,
     calculateCounteractRank,
     calculateCounteractDC,
     getEffectsOnToken,
@@ -748,9 +744,34 @@ Hooks.once("ready", () => {
   }
 });
 
-// Inject our counteract button into spell chat cards
+// Follow the user's target while the window is open
+Hooks.on("targetToken", (user) => {
+  if (user !== game.user) return;
+  foundry.applications.instances.get("counteract-dialog")?.refreshTarget();
+});
+
 Hooks.on("renderChatMessageHTML", (message, html) => {
-  // Find PF2e's counteract button
+  // Our result card: wire up the remove-effect button
+  const removeButton = html.querySelector("button[data-counteract-remove]");
+  if (removeButton) {
+    const effectUuid = message.flags?.[MODULE_ID]?.effectUuid;
+    const effect = effectUuid ? fromUuidSync(effectUuid) : null;
+    if (!effect?.isOwner) {
+      // Already removed, or this user can't remove it
+      removeButton.disabled = true;
+      if (!effect) removeButton.innerHTML = `<i class="fa-solid fa-check"></i> ${game.i18n.localize("COUNTERACT.ChatCard.Removed")}`;
+      else removeButton.hidden = true;
+    } else {
+      removeButton.addEventListener("click", async () => {
+        removeButton.disabled = true;
+        await effect.delete();
+        ui.chat.updateMessage?.(message);
+      });
+    }
+    return;
+  }
+
+  // PF2e spell card: swap its counteract button for ours
   const pf2eButton = html.querySelector('button[data-action="spell-counteract"]');
   if (!pf2eButton) return;
 
@@ -770,11 +791,13 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   ourButton.innerHTML = `<i class="fa-solid fa-ban"></i> ${game.i18n.localize("COUNTERACT.ChatCard.CounteractButton")}`;
 
   ourButton.addEventListener("click", () => {
-    new CounteractDialog({
-      actorId: actor?.id,
+    openCounteractDialog({
+      // Counteraction spells (Dispel Magic, Cleanse Affliction...) end ongoing effects
+      mode: COUNTERACT_MODE.DISPEL,
+      actorUuid: actor?.uuid,
       spellId: spell?.id,
       castRank
-    }).render(true);
+    });
   });
 
   // Insert our button where the original was
@@ -789,7 +812,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
   if (controls.tokens?.tools) {
     controls.tokens.tools.counteract = {
       name: "counteract",
-      title: "COUNTERACT.SceneControl.Title", // v13 auto-localizes
+      title: "COUNTERACT.SceneControl.Title",
       icon: "fa-solid fa-ban",
       button: true,
       onChange: () => {
@@ -807,6 +830,7 @@ export {
   CounteractDialog,
   openCounteractDialog,
   checkCounteract,
+  previewCounteract,
   calculateCounteractRank,
   calculateCounteractDC,
   getSpellDC,

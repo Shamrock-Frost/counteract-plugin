@@ -1,60 +1,41 @@
 <div class="counteract-chat-card">
-  {{!-- Header --}}
-  <div class="card-header">
-    <i class="fas fa-ban"></i>
-    <span>{{localize "COUNTERACT.ChatCard.Title"}}</span>
+  <header class="card-header">
+    <img src="{{spellImg}}" alt="">
+    <div class="titles">
+      <h3>{{spellName}}</h3>
+      <span class="subtitle">
+        {{#if isCounterspell}}{{localize "COUNTERACT.ModeSelect.Counterspell"}}{{else}}{{localize "COUNTERACT.ChatCard.Title"}}{{/if}}
+        · {{localize "COUNTERACT.Dialog.RankN" rank=sourceRank}}
+      </span>
+    </div>
+  </header>
+
+  <div class="versus">
+    {{#if targetImg}}<img src="{{targetImg}}" alt="">{{else}}<i class="fa-solid fa-crosshairs" inert></i>{{/if}}
+    <span class="target-name">{{targetName}}</span>
+    <span class="tag">{{localize "COUNTERACT.Dialog.RankN" rank=targetRank}}</span>
+    <span class="tag">{{localize "COUNTERACT.ChatCard.DC" dc=targetDC}}</span>
   </div>
 
-  {{!-- Roll Details --}}
-  <div class="roll-details">
-    <div class="detail">
-      <span class="detail-label">{{localize "COUNTERACT.ChatCard.Caster"}}</span>
-      <span class="detail-value">{{actorName}}</span>
-    </div>
-    <div class="detail">
-      <span class="detail-label">{{localize "COUNTERACT.ChatCard.Spell"}}</span>
-      <span class="detail-value">{{spellName}}</span>
-    </div>
-    <div class="detail">
-      <span class="detail-label">{{localize "COUNTERACT.ChatCard.SourceRank"}}</span>
-      <span class="detail-value">{{sourceRank}}</span>
-    </div>
-    <div class="detail">
-      <span class="detail-label">{{localize "COUNTERACT.ChatCard.Target"}}</span>
-      <span class="detail-value">{{targetName}}</span>
-    </div>
+  <div class="roll-line">
+    <span class="die {{isNat}}" data-tooltip="{{localize "COUNTERACT.ChatCard.DieResult"}}">{{dieResult}}</span>
+    <span class="modifier">{{modifierLabel}}</span>
+    <span class="equals">=</span>
+    <span class="total">{{total}}</span>
+    <span class="degree {{degreeOfSuccess}}">{{degreeLabel}}</span>
   </div>
 
-  {{!-- Roll Display --}}
-  <div class="roll-display">
-    <div class="roll-formula">
-      <span class="die-result" title="{{localize "COUNTERACT.ChatCard.DieResult"}}">{{dieResult}}</span>
-      + <span class="modifier" title="{{localize "COUNTERACT.ChatCard.Modifier"}}">{{modifier}}</span>
-      = <span class="total" title="{{localize "COUNTERACT.ChatCard.Total"}}">{{roll}}</span>
-    </div>
-    <div class="roll-vs">
-      {{localize "COUNTERACT.ChatCard.Versus"}} DC {{targetDC}}
-    </div>
+  <div class="result {{#if success}}success{{else}}failure{{/if}}">
+    <strong>
+      <i class="fa-solid {{#if success}}fa-circle-check{{else}}fa-circle-xmark{{/if}}" inert></i>
+      {{resultLabel}}
+    </strong>
+    <span class="explanation">{{explanation}}</span>
   </div>
 
-  {{!-- Degree of Success --}}
-  <div class="degree-of-success {{degreeOfSuccess}}">
-    {{degreeLabel}}
-  </div>
-
-  {{!-- Rank Comparison --}}
-  <div class="rank-comparison">
-    <span>{{localize "COUNTERACT.ChatCard.SourceRank"}}: {{sourceRank}}</span>
-    <span>|</span>
-    <span>{{localize "COUNTERACT.ChatCard.TargetRank"}}: {{targetRank}}</span>
-    {{#if threshold}}
-    <span>|</span>
-    <span>{{localize "COUNTERACT.ChatCard.Threshold"}}: {{threshold}}</span>
-    {{/if}}
-  </div>
-
-  {{!-- Result Banner --}}
-  <div class="result-banner {{#if success}}success{{else}}failure{{/if}}">
-    {{resultLabel}}
-  </div>
+  {{#if canRemove}}
+    <button type="button" data-counteract-remove>
+      <i class="fa-solid fa-eraser" inert></i> {{localize "COUNTERACT.ChatCard.RemoveEffect" name=targetName}}
+    </button>
+  {{/if}}
 </div>

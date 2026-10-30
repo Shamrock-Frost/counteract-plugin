@@ -4,20 +4,24 @@ A Foundry VTT module for Pathfinder 2nd Edition that automates counteract checks
 
 ## Features
 
-- **Two Counteract Modes:**
+- **Two Counteract Modes**, switched with a toggle at the top of the window:
   - **Dispel Effect** - For spells like Dispel Magic targeting ongoing effects on a token
   - **Counterspell** - For the Counterspell reaction, targeting an enemy caster
 
 - **Smart Auto-Population:**
-  - Detects your spellcasting modifier from your character
-  - Pulls effects/afflictions from targeted tokens
-  - Shows enemy caster's spells sorted by recently cast (from chat history)
-  - Auto-calculates DC from rank using the official fallback table
+  - Uses your spellcasting entry's counteract modifier
+  - Pulls effects and afflictions from the targeted token, and follows your target as it changes
+  - Shows the enemy caster's recently cast spells first (from chat history)
+  - Uses the original caster's spell DC or the affliction's DC when PF2e recorded it, otherwise the DC for the rank
+
+- **Know your odds before rolling:** the window shows the degree of success you need, the total that gets it, and your chance
+
+- **Readable results:** the chat card says whether it counteracted and why, and a successful dispel has a button to remove the effect
 
 - **Full Remaster Rules Support:**
   - Correct DC calculation (caster's spell DC or fallback table)
-  - Proper rank calculation (spells use rank, effects use level/2)
-  - Accurate degree of success thresholds
+  - Proper rank calculation (spells and spell effects use their rank, other effects use level/2)
+  - Accurate degree of success thresholds, including natural 1s and 20s
 
 ## Installation
 
@@ -33,7 +37,7 @@ https://github.com/Shamrock-Frost/counteract-plugin/releases/latest/download/mod
 
 ## Usage
 
-### Opening the Dialog
+### Opening the Window
 
 **Option 1: Scene Controls** (if enabled in settings)
 - Click the Token tools in the left toolbar
@@ -41,43 +45,41 @@ https://github.com/Shamrock-Frost/counteract-plugin/releases/latest/download/mod
 
 **Option 2: Console/Macro**
 ```javascript
-game.counteract.open()           // Shows mode selection first
-game.counteract.openDispel()     // Opens Dispel mode directly
+game.counteract.open()             // Opens in the mode you used last
+game.counteract.openDispel()       // Opens Dispel mode directly
 game.counteract.openCounterspell() // Opens Counterspell mode directly
 ```
 
 **Option 3: Spell Chat Cards**
-- Cast a spell with the Counteract trait (like Dispel Magic)
-- Click the "Counteract" button on the chat card
+- Cast a spell that counteracts (like Dispel Magic)
+- Click the "Counteract" button on the chat card; the window opens with that spell and its cast rank filled in
 
 ### Dispel Effect Mode
 
 Use this when casting Dispel Magic or similar spells on an ongoing effect:
 
 1. **Target a token** that has an effect you want to dispel
-2. Open the counteract dialog
-3. Select **Dispel Effect**
-4. Choose your actor and counteracting spell
-5. Select the target effect from the dropdown (or use Manual Input)
-6. Click **Roll Counteract**
+2. Open the counteract window and choose **Dispel Effect**
+3. Choose your caster and counteracting spell
+4. Pick the effect from the dropdown; its rank and DC fill in
+5. Check the odds, then click **Roll Counteract Check**
+6. On a success, the GM can click **Remove** on the chat card to end the effect
 
 ### Counterspell Mode
 
 Use this when using the Counterspell reaction:
 
 1. **Target the enemy caster**
-2. Open the counteract dialog
-3. Select **Counterspell**
-4. Choose your actor and the spell you're expending
-5. Select the spell being cast from the dropdown (recently cast spells marked with a star)
-6. Click **Roll Counteract**
+2. Open the counteract window and choose **Counterspell**
+3. Choose your caster and the spell you're expending
+4. Pick the spell being cast; recently cast spells are listed first
+5. Click **Roll Counteract Check**
 
 ### Manual Entry
 
-If you don't have a target or need to enter custom values:
-- Select "Manual Input" from the dropdown
-- Enter the target's name, rank, and DC
-- The DC auto-fills from the rank using the fallback table, but you can override it
+Without a target, or for anything the dropdowns don't cover:
+- Enter the name, rank, and DC directly
+- The DC follows the rank using the fallback table until you type your own
 
 ## Counteract Rules Reference
 
