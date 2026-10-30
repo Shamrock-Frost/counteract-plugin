@@ -96,6 +96,7 @@
 /* Chat Card Styling */
 .counteract-chat-card {
   background: var(--color-bg, #1c1c1c);
+  color: #e8e8e8;
   border-radius: 6px;
   padding: 10px;
   border: 1px solid var(--color-border-light, #444);

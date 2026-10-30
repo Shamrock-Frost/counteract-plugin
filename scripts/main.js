@@ -135,13 +135,13 @@ function getDegreeOfSuccess(total, dc, dieResult) {
 
 /**
  * Get effects on a token that can be counteracted
- * Includes afflictions, conditions, and effects (ongoing magical effects)
+ * Includes effect and affliction items (PF2e keeps ongoing effects as items;
+ * conditions have no level, so they aren't offered)
  *
- * Note on DCs: The DC provided is calculated from effect level as a fallback.
- * Per PF2e rules:
- * - For ongoing spell effects: use the original caster's spell DC
- * - For afflictions: use the DC from the affliction's stat block
- * The GM may need to enter the correct DC manually.
+ * Rank: effects that came from a spell store the spell's rank as their level,
+ * so that is their counteract rank; anything else uses half its level.
+ * DC: the originating caster's spell DC when PF2e recorded the origin, the
+ * affliction's own DC for afflictions, else the fallback table by rank.
  *
  * @param {Token} token - The Foundry token
  * @returns {Array} - Array of effect objects with name, rank, and id
@@ -150,41 +150,32 @@ function getEffectsOnToken(token) {
   if (!token?.actor) return [];
 
   const effects = [];
-
-  // Get active effects (these use level/2 for rank)
-  for (const effect of token.actor.effects) {
-    const level = effect.system?.level?.value ?? effect.system?.level ?? effect.flags?.pf2e?.level ?? 1;
-    const rank = calculateCounteractRank(level);
-    effects.push({
-      id: effect.id,
-      name: effect.name,
-      level: level,
-      rank: rank,
-      dc: calculateCounteractDC(rank),
-      type: "effect"
-    });
-  }
-
-  // Get items that might be counteractable (afflictions, conditions, effects)
-  // Note: "spell" items are spells the actor CAN cast, not spells affecting them.
-  // Ongoing spell effects appear as "effect" type items or active effects.
-  // DC calculation here is a fallback; for spell effects, the original caster's
-  // spell DC should be used (which the GM may need to enter manually).
-  const counteractableTypes = ["affliction", "condition", "effect"];
   for (const item of token.actor.items) {
-    if (counteractableTypes.includes(item.type)) {
-      const level = item.system?.level?.value ?? item.system?.level ?? item.flags?.pf2e?.level ?? 1;
-      // For afflictions, DC should come from stat block; this is a fallback
-      const rank = calculateCounteractRank(level);
-      effects.push({
-        id: item.id,
-        name: item.name,
-        level: level,
-        rank: rank,
-        dc: calculateCounteractDC(rank),
-        type: item.type
-      });
-    }
+    if (item.type !== "effect" && item.type !== "affliction") continue;
+
+    const level = Number(item.system?.level?.value) || 1;
+    // PF2e sets fromSpell on creation; the slug check covers effects that predate it
+    const fromSpell = !!item.system?.fromSpell || (item.slug ?? "").startsWith("spell-effect-");
+    const rank = fromSpell ? Math.clamp(level, 1, 10) : calculateCounteractRank(level);
+
+    // PF2e records the casting item on effects dragged from a spell card
+    const originUuid = item.system?.context?.origin?.item;
+    const originItem = originUuid ? fromUuidSync(originUuid) : null;
+    const originDC = originItem?.spellcasting?.statistic?.dc?.value;
+    const afflictionDC = item.type === "affliction" ? item.system?.save?.value : null;
+    const dc = originDC || afflictionDC || calculateCounteractDC(rank);
+
+    effects.push({
+      id: item.id,
+      name: item.name,
+      img: item.img,
+      level,
+      rank,
+      dc,
+      dcSource: originDC ? "caster" : afflictionDC ? "affliction" : "table",
+      fromSpell,
+      type: item.type
+    });
   }
 
   return effects;
@@ -204,15 +195,17 @@ function getSpellsFromActor(actor, options = {}) {
 
   for (const item of actor.items) {
     if (item.type === "spell") {
-      const traits = item.system?.traits?.value ?? [];
-      const hasCounteractTrait = traits.includes("counteract");
+      // PF2e flags counteracting spells with system.counteraction (there is no trait)
+      const hasCounteractTrait = !!item.system?.counteraction;
 
       if (options.counteractOnly && !hasCounteractTrait) continue;
 
       spells.push({
         id: item.id,
         name: item.name,
-        rank: item.system?.level?.value ?? item.system?.rank ?? 1,
+        img: item.img,
+        // item.rank is the heightened rank; system.level.value is only the base rank
+        rank: item.rank ?? item.system?.level?.value ?? 1,
         hasCounteractTrait,
         entryId: item.system?.location?.value ?? null
       });
@@ -235,13 +228,13 @@ function getCounteractSpells(actor) {
 function getSpellDC(actor) {
   if (!actor) return 0;
 
-  // Try classOrSpellDC first (higher of class or spell DC)
-  const classOrSpellDC = actor.system?.attributes?.classOrSpellDC?.value;
-  if (classOrSpellDC) return classOrSpellDC;
-
-  // Try spellDC directly
+  // Spell DC (PF2e: the best spellcasting entry's DC)
   const spellDC = actor.system?.attributes?.spellDC?.value;
   if (spellDC) return spellDC;
+
+  // Higher of class or spell DC
+  const classOrSpellDC = actor.system?.attributes?.classOrSpellDC?.value;
+  if (classOrSpellDC) return classOrSpellDC;
 
   // Try from spellcasting entries
   const spellcasting = actor.spellcasting;
@@ -276,26 +269,19 @@ function getRecentlyCastSpells(actor, limit = 50) {
     const speakerId = message.speaker?.actor;
     if (speakerId !== actor.id) continue;
 
-    // Try to extract spell data from the message
-    // PF2e spell cards have data attributes we can parse
-    const content = message.content;
-    if (!content) continue;
+    // PF2e records the cast spell and its rank in the message's origin flag
+    const origin = message.flags?.pf2e?.origin;
+    if (origin?.type !== "spell" || !origin.uuid) continue;
 
-    // Look for spell card data in the HTML
-    const itemIdMatch = content.match(/data-item-id="([^"]+)"/);
-    const spellMatch = content.match(/data-cast-rank="(\d+)"/);
-
-    if (itemIdMatch) {
-      const spellId = itemIdMatch[1];
-      const spell = actor.items.get(spellId);
-      if (spell?.type === "spell") {
-        recentCasts.push({
-          id: spellId,
-          name: spell.name,
-          rank: spellMatch ? parseInt(spellMatch[1]) : (spell.system?.level?.value ?? 1),
-          timestamp: message.timestamp
-        });
-      }
+    const spellId = foundry.utils.parseUuid(origin.uuid)?.id;
+    const spell = actor.items.get(spellId);
+    if (spell?.type === "spell") {
+      recentCasts.push({
+        id: spellId,
+        name: spell.name,
+        rank: Number(origin.castRank) || spell.rank || 1,
+        timestamp: message.timestamp
+      });
     }
   }
 
@@ -320,21 +306,19 @@ function getSpellcastingModifier(actor, entryId = null) {
   const spellcasting = actor.spellcasting;
   if (!spellcasting) return getFallbackModifier(actor);
 
-  // If we have a specific entry ID, try to get that entry's modifier
+  // PF2e gives each spellcasting entry a dedicated counteract statistic
+  // (the entry's attribute and proficiency); prefer it over the spell attack
+  const entryMod = (entry) => entry?.counteraction?.mod ?? entry?.statistic?.mod;
+
   if (entryId) {
-    const entry = spellcasting.get(entryId);
-    if (entry?.statistic) {
-      const mod = entry.statistic.mod ?? entry.statistic.totalModifier;
-      if (mod !== undefined) return mod;
-    }
+    const mod = entryMod(spellcasting.get(entryId));
+    if (mod !== undefined) return mod;
   }
 
-  // Fall back to first available entry
-  if (spellcasting.contents?.length > 0) {
-    const entry = spellcasting.contents[0];
-    const statistic = entry.statistic;
-    if (statistic?.mod !== undefined) return statistic.mod;
-    if (statistic?.totalModifier !== undefined) return statistic.totalModifier;
+  // Fall back to the first entry that has a statistic
+  for (const entry of spellcasting.contents ?? []) {
+    const mod = entryMod(entry);
+    if (mod !== undefined) return mod;
   }
 
   return getFallbackModifier(actor);
@@ -474,7 +458,7 @@ class CounteractDialog extends FormApplication {
     const modifier = defaultActor ? getSpellcastingModifier(defaultActor, entryId) : 0;
 
     // Use preselected rank if provided
-    const sourceRank = this.preselectedRank ?? (preselectedSpell?.system?.level?.value) ?? 1;
+    const sourceRank = this.preselectedRank ?? preselectedSpell?.rank ?? 1;
 
     // Mode-specific data
     let targetEffects = [];
@@ -694,23 +678,15 @@ class CounteractDialog extends FormApplication {
     };
 
     // Render chat card
-    const content = await renderTemplate(`modules/${MODULE_ID}/templates/chat-card.hbs`, chatData);
+    const content = await foundry.applications.handlebars.renderTemplate(`modules/${MODULE_ID}/templates/chat-card.hbs`, chatData);
 
-    // Create chat message (compatible with Foundry v11 and v12)
-    const messageData = {
-      user: game.user.id,
+    await ChatMessage.create({
+      author: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor }),
       content,
       rolls: [roll],
       sound: CONFIG.sounds.dice
-    };
-
-    // Handle Foundry version differences for message type
-    if (CONST.CHAT_MESSAGE_TYPES?.ROLL !== undefined) {
-      messageData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
-    }
-
-    await ChatMessage.create(messageData);
+    });
 
     // Close dialog after successful roll
     this.close();
@@ -726,23 +702,6 @@ class CounteractDialog extends FormApplication {
  */
 Hooks.once("init", async () => {
   console.log(`${MODULE_ID} | Initializing PF2e Counteract Automation`);
-
-  // WORKAROUND: Foundry VTT is not loading our lang/en.json automatically despite
-  // correct module.json configuration. This appears to be a Foundry bug or edge case.
-  // The module is active, lang file is registered and accessible, but translations
-  // are not merged into game.i18n.translations. Manually loading as fallback.
-  // TODO: Remove this workaround if Foundry fixes the underlying issue.
-  if (!game.i18n.translations?.COUNTERACT) {
-    console.warn(`${MODULE_ID} | Translations not loaded by Foundry, loading manually...`);
-    try {
-      const response = await fetch(`modules/${MODULE_ID}/lang/en.json`);
-      const translations = await response.json();
-      foundry.utils.mergeObject(game.i18n.translations, translations);
-      console.log(`${MODULE_ID} | Successfully loaded translations manually`);
-    } catch (e) {
-      console.error(`${MODULE_ID} | Failed to load translations:`, e);
-    }
-  }
 
   // Register module settings
   game.settings.register(MODULE_ID, "showSceneButton", {
@@ -790,48 +749,31 @@ Hooks.once("ready", () => {
 });
 
 // Inject our counteract button into spell chat cards
-Hooks.on("renderChatMessage", (message, html, data) => {
+Hooks.on("renderChatMessageHTML", (message, html) => {
   // Find PF2e's counteract button
-  const pf2eButton = html.find('button[data-action="spell-counteract"]');
-  if (pf2eButton.length === 0) return;
+  const pf2eButton = html.querySelector('button[data-action="spell-counteract"]');
+  if (!pf2eButton) return;
 
   // Hide the original button
-  pf2eButton.hide();
+  pf2eButton.hidden = true;
 
-  // Get spell data from the chat card
-  const card = html.find('.pf2e.chat-card');
-  const actorId = card.data('actorId');
-  const itemId = card.data('itemId');
-  const castRank = card.data('castRank');
-  const tokenId = card.data('tokenId');
+  // PF2e resolves the cast spell (heightened, with variants) from the message flags
+  const spell = message.item;
+  const actor = spell?.actor ?? message.actor;
+  const castRank = Number(message.flags?.pf2e?.origin?.castRank) || spell?.rank || 1;
 
-  // Create our replacement button
-  const ourButton = $(`<button type="button" class="counteract-plugin-btn" data-visibility="owner">
-    <i class="fas fa-ban"></i> Counteract
-  </button>`);
+  // Create our replacement button, keeping PF2e's classes so it styles like the card
+  const ourButton = document.createElement("button");
+  ourButton.type = "button";
+  ourButton.className = `${pf2eButton.className} counteract-plugin-btn`.trim();
+  ourButton.dataset.visibility = "owner";
+  ourButton.innerHTML = `<i class="fa-solid fa-ban"></i> ${game.i18n.localize("COUNTERACT.ChatCard.CounteractButton")}`;
 
-  // Add click handler
-  ourButton.on('click', async () => {
-    // Get the actor and spell
-    let actor;
-    if (tokenId) {
-      const [sceneId, tokId] = tokenId.split('.');
-      const scene = game.scenes.get(sceneId);
-      const tokenDoc = scene?.tokens.get(tokId);
-      actor = tokenDoc?.actor;
-    }
-    if (!actor) {
-      actor = game.actors.get(actorId);
-    }
-    const spell = actor?.items.get(itemId);
-
-    // Open our dialog with pre-populated data
+  ourButton.addEventListener("click", () => {
     new CounteractDialog({
-      actorId,
-      spellId: itemId,
-      castRank: parseInt(castRank) || 1,
-      spell,
-      actor
+      actorId: actor?.id,
+      spellId: spell?.id,
+      castRank
     }).render(true);
   });
 
@@ -840,33 +782,11 @@ Hooks.on("renderChatMessage", (message, html, data) => {
 });
 
 // Add scene control button for quick access
-// NOTE: Foundry v13 changed getSceneControlButtons significantly:
-// - controls is now an object keyed by control name (not an array)
-// - tools is now an object keyed by tool name (not an array)
-// - use onChange instead of onClick, title is auto-localized
+// Since v13, controls and their tools are objects keyed by name; titles auto-localize
 Hooks.on("getSceneControlButtons", (controls) => {
   if (!game.settings.get(MODULE_ID, "showSceneButton")) return;
 
-  if (Array.isArray(controls)) {
-    // v11-12: controls is an array, tools is an array
-    const tokenControls = controls.find(c => c.name === "token");
-    if (tokenControls?.tools && Array.isArray(tokenControls.tools)) {
-      tokenControls.tools.push({
-        name: "counteract",
-        title: game.i18n.localize("COUNTERACT.SceneControl.Title"),
-        icon: "fas fa-ban",
-        button: true,
-        onClick: () => {
-          if (game.counteract) {
-            game.counteract.open();
-          } else {
-            ui.notifications.warn(game.i18n.localize("COUNTERACT.Warnings.NotReady"));
-          }
-        }
-      });
-    }
-  } else if (controls.tokens?.tools) {
-    // v13+: controls is an object, tools is also an object keyed by name
+  if (controls.tokens?.tools) {
     controls.tokens.tools.counteract = {
       name: "counteract",
       title: "COUNTERACT.SceneControl.Title", // v13 auto-localizes

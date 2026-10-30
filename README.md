@@ -109,8 +109,8 @@ When you don't know the original caster's spell DC:
 
 ## Compatibility
 
-- Foundry VTT: v11 - v13
-- PF2e System: v5.0+
+- Foundry VTT: v13 - v14
+- PF2e System: v7.0+ (tested on 8.6.1)
 
 ## License
 

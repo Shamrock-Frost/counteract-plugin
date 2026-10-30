@@ -70,7 +70,8 @@
       "DieResult": "Die Result",
       "Modifier": "Modifier",
       "Total": "Total",
-      "Versus": "vs"
+      "Versus": "vs",
+      "CounteractButton": "Counteract"
     },
     "Degree": {
       "criticalSuccess": "Critical Success",

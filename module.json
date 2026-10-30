@@ -2,7 +2,7 @@
   "id": "counteract-plugin",
   "title": "PF2e Counteract Automation",
   "description": "Automates counteract checks in PF2e by integrating with existing spell/effect data and providing a streamlined UI for GMs.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "authors": [
     {
       "name": "Shamrock-Frost"
@@ -10,11 +10,10 @@
   ],
   "url": "https://github.com/Shamrock-Frost/counteract-plugin",
   "manifest": "https://github.com/Shamrock-Frost/counteract-plugin/releases/latest/download/module.json",
-  "download": "https://github.com/Shamrock-Frost/counteract-plugin/releases/download/v1.0.0/module.zip",
+  "download": "https://github.com/Shamrock-Frost/counteract-plugin/releases/download/v1.1.0/module.zip",
   "compatibility": {
-    "minimum": "11",
-    "verified": "13",
-    "maximum": "13"
+    "minimum": "13",
+    "verified": "14"
   },
   "relationships": {
     "systems": [
@@ -22,7 +21,8 @@
         "id": "pf2e",
         "type": "system",
         "compatibility": {
-          "minimum": "5.0.0"
+          "minimum": "7.0.0",
+          "verified": "8.6.1"
         }
       }
     ]
